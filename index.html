@@ -1,0 +1,618 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Forkful</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800;900&family=Source+Sans+3:wght@400;600&display=swap">
+<style>
+/* Layout: two panes — search & results on the left, a printed-style Nutrition Facts label and today's log on the right; stacks on phones. */
+:root {
+  --bg: #f6f7f4;
+  --surface: #ffffff;
+  --ink: #17201b;
+  --muted: #5f6b64;
+  --line: #d9ded8;
+  --accent: #7a2250;          /* beet */
+  --accent-soft: #f3e6ec;
+  --protein: #2f6f9f;
+  --carbs: #c8871c;
+  --fat: #8a4fb0;
+  --good: #2e7d4f;
+  --warn: #b5541c;
+  --font-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121614; --surface: #1b201d; --ink: #e8ece9; --muted: #9aa59f; --line: #2e3531;
+    --accent: #e27bab; --accent-soft: #3a2230;
+    --protein: #6fb0e0; --carbs: #e5b04e; --fat: #c294e0; --good: #6cc592; --warn: #f09a5f;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121614; --surface: #1b201d; --ink: #e8ece9; --muted: #9aa59f; --line: #2e3531;
+  --accent: #e27bab; --accent-soft: #3a2230;
+  --protein: #6fb0e0; --carbs: #e5b04e; --fat: #c294e0; --good: #6cc592; --warn: #f09a5f;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--ink);
+  font: 16px/1.45 var(--font-body);
+  padding: 0 16px 48px;
+}
+.wrap { max-width: 1180px; margin: 0 auto; }
+header.top {
+  display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px 24px;
+  padding-block: 24px 16px; border-bottom: 3px solid var(--ink); margin-bottom: 20px;
+}
+.brand { font: 900 2rem/1 var(--font-display); letter-spacing: -0.02em; margin: 0; }
+.brand span { color: var(--accent); }
+.tag { color: var(--muted); font-size: 0.95rem; margin: 0; }
+.grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); gap: 28px; align-items: start; }
+@media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+
+/* Search */
+form.search { display: flex; flex-wrap: wrap; gap: 8px; }
+.seg { display: inline-flex; border: 1.5px solid var(--ink); border-radius: 999px; overflow: hidden; }
+.seg button { border: 0; background: transparent; color: var(--ink); padding: 8px 14px; font: 600 0.9rem var(--font-body); cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.searchrow { display: flex; gap: 8px; flex: 1 1 100%; }
+input[type="search"], input[type="number"], input[type="text"] {
+  font: inherit; color: var(--ink); background: var(--surface);
+  border: 1.5px solid var(--line); border-radius: 8px; padding: 10px 12px; min-width: 0;
+}
+input:focus-visible, button:focus-visible, select:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.searchrow input { flex: 1; }
+.btn { font: 700 0.95rem var(--font-display); border: 0; border-radius: 8px; padding: 10px 16px; cursor: pointer; background: var(--accent); color: #fff; }
+.btn.ghost { background: transparent; color: var(--ink); border: 1.5px solid var(--line); }
+.btn:disabled { opacity: .5; cursor: default; }
+.hint { color: var(--muted); font-size: 0.85rem; margin: 8px 0 0; }
+.status { margin: 14px 0 6px; font-size: 0.9rem; color: var(--muted); min-height: 1.3em; }
+.status.err { color: var(--warn); }
+
+ul.results { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+ul.results li button {
+  width: 100%; text-align: left; display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 12px; align-items: center;
+  padding: 10px 6px; background: transparent; border: 0; border-bottom: 1px solid var(--line); color: inherit; font: inherit; cursor: pointer;
+}
+ul.results li button:hover { background: var(--accent-soft); }
+ul.results li button[aria-current="true"] { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
+.thumb { width: 44px; height: 44px; border-radius: 6px; background: var(--line); object-fit: cover; display: grid; place-items: center; font: 800 0.75rem var(--font-display); color: var(--muted); }
+.rname { font-weight: 600; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.rmeta { color: var(--muted); font-size: 0.82rem; }
+.macros-mini { display: flex; gap: 6px; font-size: 0.78rem; font-variant-numeric: tabular-nums; margin-top: 2px; }
+.macros-mini b { font-weight: 600; }
+.p { color: var(--protein); } .c { color: var(--carbs); } .f { color: var(--fat); }
+.kcal { text-align: right; font: 800 1.15rem/1 var(--font-display); font-variant-numeric: tabular-nums; }
+.kcal small { display: block; font: 400 0.72rem var(--font-body); color: var(--muted); margin-top: 3px; }
+
+/* Nutrition Facts label */
+.label {
+  background: var(--surface); border: 2px solid var(--ink); padding: 10px 12px 12px; font-family: var(--font-display);
+  max-width: 100%;
+}
+.label h2 { font: 900 2.1rem/1 var(--font-display); margin: 0; letter-spacing: -0.01em; }
+.label .fname { font: 600 0.95rem/1.3 var(--font-body); margin: 4px 0 6px; overflow-wrap: anywhere; }
+.label .src { font: 400 0.78rem var(--font-body); color: var(--muted); }
+.label .src a { color: var(--muted); }
+.amt { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 6px 0; border-top: 1px solid var(--ink); }
+.amt label { font-weight: 800; }
+.amt input { width: 90px; padding: 6px 8px; }
+.chip { font: 600 0.8rem var(--font-body); border: 1.5px solid var(--line); background: transparent; color: var(--ink); padding: 4px 10px; border-radius: 999px; cursor: pointer; }
+.chip:hover { border-color: var(--ink); }
+.rule-xl { border-top: 10px solid var(--ink); }
+.rule-m { border-top: 5px solid var(--ink); }
+.calrow { display: flex; justify-content: space-between; align-items: flex-end; padding: 4px 0 2px; }
+.calrow .l { font: 900 1.5rem/1 var(--font-display); }
+.calrow .v { font: 900 2.6rem/1 var(--font-display); font-variant-numeric: tabular-nums; }
+.dvhead { text-align: right; font: 800 0.8rem var(--font-display); padding: 3px 0; }
+.nrow { display: flex; justify-content: space-between; gap: 8px; border-top: 1px solid var(--ink); padding: 3px 0; font-size: 0.92rem; font-variant-numeric: tabular-nums; }
+.nrow.sub { padding-left: 18px; }
+.nrow b { font-weight: 800; }
+.nrow .dv { font-weight: 800; }
+.na { color: var(--muted); font-weight: 400; }
+.foot { font: 400 0.75rem/1.35 var(--font-body); margin: 6px 0 0; border-top: 5px solid var(--ink); padding-top: 5px; }
+.split { display: flex; height: 10px; border-radius: 5px; overflow: hidden; margin: 10px 0 4px; background: var(--line); }
+.split span { display: block; height: 100%; }
+.legend { display: flex; gap: 12px; flex-wrap: wrap; font: 400 0.8rem var(--font-body); color: var(--muted); }
+.addrow { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.addrow select { font: inherit; padding: 8px; border-radius: 8px; border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); }
+.addrow .btn { flex: 1; }
+.empty { color: var(--muted); padding: 40px 12px; text-align: center; font-family: var(--font-body); }
+
+/* Day log */
+section.day { margin-top: 24px; }
+.dayhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.dayhead h3 { font: 800 1.25rem var(--font-display); margin: 0; }
+.daynav { display: flex; align-items: center; gap: 6px; }
+.daynav button { width: 32px; height: 32px; border-radius: 50%; border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; font-weight: 800; }
+.daynav span { font-variant-numeric: tabular-nums; min-width: 8.5em; text-align: center; font-weight: 600; }
+.totals { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 12px 0; }
+@media (max-width: 420px) { .totals { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.tot { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.tot .k { font: 600 0.72rem var(--font-body); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.tot .n { font: 800 1.3rem/1.2 var(--font-display); font-variant-numeric: tabular-nums; }
+.tot .n small { font: 400 0.8rem var(--font-body); color: var(--muted); }
+.bar { height: 5px; border-radius: 3px; background: var(--line); margin-top: 6px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--ink); }
+.tot.kc .bar i { background: var(--accent); } .tot.over .bar i { background: var(--warn); }
+.meal { margin-top: 10px; }
+.meal h4 { font: 800 0.8rem var(--font-display); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 4px; display: flex; justify-content: space-between; }
+.entry { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line); font-size: 0.92rem; }
+.entry .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.entry .nm small { color: var(--muted); }
+.entry .kc { font-weight: 700; font-variant-numeric: tabular-nums; }
+.entry button { border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 1.1rem; line-height: 1; padding: 4px 6px; border-radius: 4px; }
+.entry button:hover { color: var(--warn); background: var(--accent-soft); }
+
+details.settings { margin-top: 28px; border-top: 1px solid var(--line); padding-top: 12px; }
+details.settings summary { cursor: pointer; font: 700 0.95rem var(--font-display); }
+.setgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-top: 12px; }
+.setgrid label { display: grid; gap: 4px; font-size: 0.85rem; color: var(--muted); }
+.setgrid a { color: var(--accent); }
+@media (prefers-reduced-motion: no-preference) { .bar i, .split span { transition: width .3s ease; } }
+.toprt { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.seg.sm button { padding: 4px 10px; font-size: 0.8rem; }
+.calrow .v small { font: 600 0.9rem var(--font-body); color: var(--muted); margin-right: 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand">Fork<span>ful</span></h1>
+    <div class="toprt">
+      <p class="tag" data-t="tagline"></p>
+      <div class="seg sm" role="group" aria-label="Language / Langue">
+        <button type="button" id="langFr" aria-pressed="false" lang="fr">FR</button>
+        <button type="button" id="langEn" aria-pressed="false" lang="en">EN</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="grid">
+    <!-- Left: search -->
+    <main>
+      <form class="search" id="searchForm">
+        <div class="seg" role="group" id="srcGroup">
+          <button type="button" id="srcUsda" aria-pressed="true" data-t="srcUsda"></button>
+          <button type="button" id="srcOff" aria-pressed="false" data-t="srcOff"></button>
+        </div>
+        <div class="searchrow">
+          <input type="search" id="q" autocomplete="off">
+          <button class="btn" id="goBtn" type="submit" data-t="search"></button>
+        </div>
+      </form>
+      <p class="hint" id="srcHint"></p>
+      <p class="status" id="status" role="status"></p>
+      <ul class="results" id="results"></ul>
+    </main>
+
+    <!-- Right: detail + day log -->
+    <aside>
+      <div id="detail" class="label"><div class="empty" data-t="pick"></div></div>
+
+      <section class="day">
+        <div class="dayhead">
+          <h3 data-t="log"></h3>
+          <div class="daynav">
+            <button type="button" id="prevDay">‹</button>
+            <span id="dayLabel"></span>
+            <button type="button" id="nextDay">›</button>
+          </div>
+        </div>
+        <div class="totals" id="totals"></div>
+        <div id="log"></div>
+      </section>
+
+      <details class="settings">
+        <summary data-t="settings"></summary>
+        <div class="setgrid">
+          <label><span data-t="goalKcal"></span><input type="number" id="goalKcal" min="0" step="50"></label>
+          <label><span data-t="goalP"></span><input type="number" id="goalP" min="0"></label>
+          <label><span data-t="goalC"></span><input type="number" id="goalC" min="0"></label>
+          <label><span data-t="goalF"></span><input type="number" id="goalF" min="0"></label>
+          <label style="grid-column: 1 / -1"><span data-t="usdaKey"></span>
+            <input type="text" id="usdaKey" placeholder="DEMO_KEY" autocomplete="off" spellcheck="false">
+          </label>
+        </div>
+      </details>
+    </aside>
+  </div>
+</div>
+
+<script>
+(() => {
+  // ---------- storage helpers ----------
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem("forkful:" + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+    set(k, v) { try { localStorage.setItem("forkful:" + k, JSON.stringify(v)); } catch {} }
+  };
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  // ---------- language ----------
+  const I18N = {
+    en: {
+      tagline: "Nutrition from USDA FoodData Central and Open Food Facts",
+      srcUsda: "Whole foods · USDA", srcOff: "Packaged · Open Food Facts", srcGroup: "Data source",
+      search: "Search", placeholder: "Search a food, or type a barcode",
+      hintUsda: "Lab-measured values for generic foods: produce, meat, dairy, grains. Food names are in English.",
+      hintOff: "Crowd-sourced label data for millions of branded products. Type a barcode number to look one up directly.",
+      searching: (s, q) => `Searching ${s} for “${q}”…`,
+      found: (n, q) => `${n} results for “${q}”. Values per 100 g.`,
+      none: q => `No matches for “${q}”. Try a simpler word or the other source.`,
+      errUsdaLimit: "The shared USDA demo key has hit its hourly limit. Add your own free key under Goals & settings.",
+      errUsdaKey: "USDA rejected the API key. Check it under Goals & settings.",
+      errHttp: (s, c) => `${s} search failed (HTTP ${c}).`,
+      errNet: "Network error. Check your connection and try again.",
+      errServer: "Open Food Facts needs the local server. Start it with: python server.py",
+      pick: "Pick a food to see its Nutrition Facts.",
+      amount: "Amount", serving: "1 serving", oz: "1 oz (28 g)",
+      add: g => `Add ${g} g to log`, added: "Added ✓",
+      log: "Food log", today: "Today", yesterday: "Yesterday", prev: "Previous day", next: "Next day",
+      emptyToday: "Nothing logged yet today. Pick a food, set the amount, then press Add.",
+      emptyDay: "Nothing logged on this day.", remove: n => `Remove ${n}`,
+      kcal: "Calories", protein: "Protein", carbs: "Carbs", fat: "Fat",
+      pctCal: "of calories", source: "Source",
+      settings: "Goals & settings", goalKcal: "Calories (kcal)", goalP: "Protein (g)", goalC: "Carbs (g)", goalF: "Fat (g)",
+      usdaKey: "USDA API key (free at fdc.nal.usda.gov/api-key-signup; blank uses the shared demo key)",
+      meals: { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner", snacks: "Snacks" },
+      nutriscore: "Nutri-Score", unnamed: "Unnamed product", na: "n/a",
+      sample: { usda: "banana", off: "greek yogurt" }
+    },
+    fr: {
+      tagline: "Valeurs nutritionnelles issues de l’USDA et d’Open Food Facts",
+      srcUsda: "Aliments bruts · USDA", srcOff: "Produits emballés · Open Food Facts", srcGroup: "Source des données",
+      search: "Rechercher", placeholder: "Chercher un aliment ou saisir un code-barres",
+      hintUsda: "Valeurs mesurées en laboratoire pour les aliments génériques. Base américaine : cherchez en anglais (ex. « apple », « chicken breast »).",
+      hintOff: "Données d’étiquettes collaboratives pour des millions de produits de marque. Saisissez un code-barres pour trouver un produit directement.",
+      searching: (s, q) => `Recherche de « ${q} » dans ${s}…`,
+      found: (n, q) => `${n} résultats pour « ${q} ». Valeurs pour 100 g.`,
+      none: q => `Aucun résultat pour « ${q} ». Essayez un mot plus simple ou l’autre source.`,
+      errUsdaLimit: "La clé de démonstration USDA a atteint sa limite horaire. Ajoutez votre clé gratuite dans Objectifs et réglages.",
+      errUsdaKey: "L’USDA a refusé la clé API. Vérifiez-la dans Objectifs et réglages.",
+      errHttp: (s, c) => `La recherche ${s} a échoué (HTTP ${c}).`,
+      errNet: "Erreur réseau. Vérifiez votre connexion et réessayez.",
+      errServer: "Open Food Facts nécessite le serveur local. Lancez-le avec : python server.py",
+      pick: "Choisissez un aliment pour voir ses valeurs nutritionnelles.",
+      amount: "Quantité", serving: "1 portion", oz: "1 poignée (30 g)",
+      add: g => `Ajouter ${g} g au journal`, added: "Ajouté ✓",
+      log: "Journal alimentaire", today: "Aujourd’hui", yesterday: "Hier", prev: "Jour précédent", next: "Jour suivant",
+      emptyToday: "Rien de noté aujourd’hui. Choisissez un aliment, réglez la quantité, puis appuyez sur Ajouter.",
+      emptyDay: "Rien de noté ce jour-là.", remove: n => `Retirer ${n}`,
+      kcal: "Calories", protein: "Protéines", carbs: "Glucides", fat: "Lipides",
+      pctCal: "des calories", source: "Source",
+      settings: "Objectifs et réglages", goalKcal: "Calories (kcal)", goalP: "Protéines (g)", goalC: "Glucides (g)", goalF: "Lipides (g)",
+      usdaKey: "Clé API USDA (gratuite sur fdc.nal.usda.gov/api-key-signup ; vide = clé de démonstration partagée)",
+      meals: { breakfast: "Petit-déjeuner", lunch: "Déjeuner", dinner: "Dîner", snacks: "Collations" },
+      nutriscore: "Nutri-Score", unnamed: "Produit sans nom", na: "n.d.",
+      sample: { usda: "banana", off: "yaourt grec" }
+    }
+  };
+
+  // Label conventions differ: US "Nutrition Facts" with FDA Daily Values; EU/French "déclaration nutritionnelle"
+  // with Reference Intakes (Règlement UE 1169/2011, annexe XIII) and salt instead of sodium.
+  const LABELS = {
+    en: {
+      title: "Nutrition Facts", dvHead: "% Daily Value*",
+      dv: { fat: 78, satfat: 20, chol: 300, sodium: 2300, carbs: 275, fiber: 28, protein: 50, calcium: 1300, iron: 18, potassium: 4700 },
+      rows: [["Total Fat", "fat", "g", "b"], ["Saturated Fat", "satfat", "g", "s"], ["Cholesterol", "chol", "mg", "b"], ["Sodium", "sodium", "mg", "b"],
+             ["Total Carbohydrate", "carbs", "g", "b"], ["Dietary Fiber", "fiber", "g", "s"], ["Total Sugars", "sugar", "g", "s"], ["Protein", "protein", "g", "b"]],
+      minerals: [["Calcium", "calcium", "mg"], ["Iron", "iron", "mg"], ["Potassium", "potassium", "mg"]],
+      foot: "* The % Daily Value tells you how much a nutrient in a serving contributes to a daily diet. 2,000 calories a day is used for general nutrition advice."
+    },
+    fr: {
+      title: "Valeurs nutritionnelles", dvHead: "% AR*",
+      dv: { kcal: 2000, fat: 70, satfat: 20, carbs: 260, sugar: 90, protein: 50, salt: 6, fiber: null, calcium: 800, iron: 14, potassium: 2000 },
+      rows: [["Matières grasses", "fat", "g", "b"], ["dont acides gras saturés", "satfat", "g", "s"], ["Glucides", "carbs", "g", "b"],
+             ["dont sucres", "sugar", "g", "s"], ["Fibres alimentaires", "fiber", "g", "b"], ["Protéines", "protein", "g", "b"], ["Sel", "salt", "g", "b"]],
+      minerals: [["Calcium", "calcium", "mg"], ["Fer", "iron", "mg"], ["Potassium", "potassium", "mg"]],
+      foot: "* Apport de référence pour un adulte type (8 400 kJ / 2 000 kcal)."
+    }
+  };
+
+  let lang = store.get("lang", (navigator.language || "en").toLowerCase().startsWith("fr") ? "fr" : "en");
+  const T = () => I18N[lang];
+  const num = (v, d = 0) => v == null || isNaN(v) ? null : new Intl.NumberFormat(lang === "fr" ? "fr-FR" : "en-US", { maximumFractionDigits: d }).format(v);
+  const pc = v => num(v) + (lang === "fr" ? " %" : "%");
+  const r1 = n => n == null || isNaN(n) ? null : Math.round(n * 10) / 10;
+
+  const settings = Object.assign({ kcal: 2000, p: 120, c: 225, f: 70, usdaKey: "" }, store.get("settings", {}));
+  let source = store.get("source", "usda");
+  let results = [];
+  let selected = null;
+  let amount = 100;
+  let lastQuery = "";
+  let day = new Date();
+
+  // ---------- normalisers: every food becomes { id, source, name, brand, img, url, per100:{...}, serving:{g,label} } ----------
+  const USDA_MAP = { "208": "kcal", "203": "protein", "204": "fat", "205": "carbs", "291": "fiber", "269": "sugar",
+                     "606": "satfat", "307": "sodium", "601": "chol", "301": "calcium", "303": "iron", "306": "potassium" };
+  function fromUsda(f) {
+    const n = {};
+    for (const fn of f.foodNutrients || []) {
+      const key = USDA_MAP[fn.nutrientNumber];
+      if (key && n[key] == null && fn.value != null) n[key] = fn.value;
+      // Foundation foods sometimes only report Atwater energy (957/958) or kJ (268)
+      if (n.kcal == null && (fn.nutrientNumber === "958" || fn.nutrientNumber === "957")) n.kcal = fn.value;
+    }
+    if (n.kcal == null) {
+      const kj = (f.foodNutrients || []).find(x => x.nutrientNumber === "268");
+      if (kj) n.kcal = kj.value / 4.184;
+    }
+    let serving = null;
+    if (f.servingSize && /^g$/i.test(f.servingSizeUnit || "")) serving = { g: f.servingSize, label: f.householdServingFullText || `${f.servingSize} g` };
+    const desc = String(f.description || "");
+    return {
+      id: "usda:" + f.fdcId, source: "USDA " + (f.dataType || ""),
+      name: desc === desc.toUpperCase() ? desc.charAt(0) + desc.slice(1).toLowerCase() : desc,
+      brand: f.brandOwner || f.foodCategory || "", img: null,
+      url: `https://fdc.nal.usda.gov/food-details/${f.fdcId}/nutrients`, per100: n, serving
+    };
+  }
+  function fromOff(p) {
+    const m = p.nutriments || {};
+    const g = k => (m[k + "_100g"] != null && m[k + "_100g"] !== "" ? Number(m[k + "_100g"]) : null);
+    const mg = k => (g(k) != null ? g(k) * 1000 : null);
+    let kcal = g("energy-kcal");
+    if (kcal == null && g("energy-kj") != null) kcal = g("energy-kj") / 4.184;
+    if (kcal == null && g("energy") != null) kcal = g("energy") / 4.184;
+    const sodium = g("sodium") != null ? g("sodium") * 1000 : (g("salt") != null ? g("salt") * 400 : null);
+    const sq = Number(p.serving_quantity);
+    const brands = Array.isArray(p.brands) ? p.brands : String(p.brands || "").split(",");
+    return {
+      id: "off:" + p.code, source: "Open Food Facts",
+      name: p["product_name_" + lang] || p.product_name || p.generic_name || T().unnamed,
+      brand: (brands[0] || "").trim(), img: p.image_small_url || null,
+      url: `https://${lang === "fr" ? "fr" : "world"}.openfoodfacts.org/product/${p.code}`,
+      nutriscore: p.nutriscore_grade && /^[a-e]$/.test(p.nutriscore_grade) ? p.nutriscore_grade.toUpperCase() : null,
+      per100: { kcal, protein: g("proteins"), fat: g("fat"), carbs: g("carbohydrates"), fiber: g("fiber"), sugar: g("sugars"),
+                satfat: g("saturated-fat"), sodium, chol: mg("cholesterol"), calcium: mg("calcium"), iron: mg("iron"), potassium: mg("potassium") },
+      serving: sq > 0 ? { g: sq, label: p.serving_size || `${sq} g` } : null
+    };
+  }
+
+  // ---------- API calls ----------
+  async function searchUsda(q) {
+    const key = settings.usdaKey.trim() || "DEMO_KEY";
+    const u = `https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${encodeURIComponent(key)}&query=${encodeURIComponent(q)}&pageSize=25&dataType=Foundation,SR%20Legacy`;
+    const res = await fetch(u);
+    if (res.status === 429) throw new Error(T().errUsdaLimit);
+    if (res.status === 403) throw new Error(T().errUsdaKey);
+    if (!res.ok) throw new Error(T().errHttp("USDA", res.status));
+    const j = await res.json();
+    return (j.foods || []).map(fromUsda);
+  }
+  async function searchOff(q) {
+    // Open Food Facts is reached through server.py (see the note at the top of that file)
+    const path = /^\d{8,14}$/.test(q) ? `/off/product/${q}` : `/off/search?q=${encodeURIComponent(q)}`;
+    let res;
+    try { res = await fetch(`${path}${path.includes("?") ? "&" : "?"}lang=${lang}`); }
+    catch { throw new Error(location.protocol === "file:" ? T().errServer : T().errNet); }
+    if (res.status === 404 || res.status === 501) throw new Error(T().errServer);
+    if (!res.ok) throw new Error(T().errHttp("Open Food Facts", res.status));
+    const j = await res.json();
+    return (j.products || []).map(fromOff).filter(f => f.per100.kcal != null);
+  }
+
+  async function runSearch(q) {
+    q = q.trim();
+    if (!q) return;
+    lastQuery = q;
+    $("status").className = "status";
+    $("status").textContent = T().searching(source === "usda" ? "USDA" : "Open Food Facts", q);
+    $("goBtn").disabled = true;
+    try {
+      results = source === "usda" ? await searchUsda(q) : await searchOff(q);
+      $("status").textContent = results.length ? T().found(results.length, q) : T().none(q);
+      renderResults();
+      if (results.length) select(results[0]);
+    } catch (e) {
+      results = [];
+      renderResults();
+      $("status").className = "status err";
+      $("status").textContent = (e instanceof TypeError ? T().errNet : e.message) || T().errNet;
+    } finally {
+      $("goBtn").disabled = false;
+    }
+  }
+
+  // ---------- rendering ----------
+  function renderChrome() {
+    document.documentElement.lang = lang;
+    document.querySelectorAll("[data-t]").forEach(el => { el.textContent = T()[el.dataset.t]; });
+    $("langFr").setAttribute("aria-pressed", lang === "fr");
+    $("langEn").setAttribute("aria-pressed", lang === "en");
+    $("srcGroup").setAttribute("aria-label", T().srcGroup);
+    $("q").placeholder = T().placeholder;
+    $("q").setAttribute("aria-label", T().placeholder);
+    $("prevDay").setAttribute("aria-label", T().prev);
+    $("nextDay").setAttribute("aria-label", T().next);
+    $("srcUsda").setAttribute("aria-pressed", source === "usda");
+    $("srcOff").setAttribute("aria-pressed", source === "off");
+    $("srcHint").textContent = source === "usda" ? T().hintUsda : T().hintOff;
+  }
+
+  const fmtG = v => v == null ? "–" : num(v, 1) + " g";
+  function renderResults() {
+    $("results").innerHTML = results.map((f, i) => {
+      const n = f.per100;
+      const thumb = f.img ? `<img class="thumb" src="${esc(f.img)}" alt="" loading="lazy">` : `<span class="thumb">${esc((f.name[0] || "?").toUpperCase())}</span>`;
+      return `<li><button type="button" data-i="${i}" aria-current="${!!selected && selected.id === f.id}">
+        ${thumb}
+        <span style="min-width:0">
+          <span class="rname">${esc(f.name)}</span>
+          <span class="rmeta">${esc(f.brand)}${f.nutriscore ? ` · ${T().nutriscore} ${f.nutriscore}` : ""}</span>
+          <span class="macros-mini"><span class="p"><b>${T().protein[0]}</b> ${fmtG(n.protein)}</span><span class="c"><b>${T().carbs[0]}</b> ${fmtG(n.carbs)}</span><span class="f"><b>${T().fat[0]}</b> ${fmtG(n.fat)}</span></span>
+        </span>
+        <span class="kcal">${n.kcal != null ? num(n.kcal) : "–"}<small>kcal</small></span>
+      </button></li>`;
+    }).join("");
+  }
+
+  function select(f) {
+    selected = f;
+    amount = f.serving ? r1(f.serving.g) : 100;
+    renderResults();
+    renderDetail();
+  }
+
+  function scaled(per100, g) {
+    const o = {};
+    for (const k in per100) o[k] = per100[k] == null ? null : per100[k] * g / 100;
+    o.salt = per100.sodium == null ? null : per100.sodium * 2.5 / 1000 * g / 100;   // mg sodium → g salt
+    return o;
+  }
+
+  function renderDetail() {
+    const f = selected;
+    if (!f) { $("detail").innerHTML = `<div class="empty">${esc(T().pick)}</div>`; return; }
+    const L = LABELS[lang];
+    const n = scaled(f.per100, amount);
+    const row = ([label, key, unit, style]) => {
+      const v = n[key];
+      const val = v == null ? `<span class="na">${T().na}</span>` : `${num(v, unit === "mg" ? 0 : (key === "salt" ? 2 : 1))} ${unit}`;
+      const dv = L.dv[key] && v != null ? pc(v / L.dv[key] * 100) : "";
+      return `<div class="nrow${style === "s" ? " sub" : ""}"><span>${style === "b" ? `<b>${label}</b>` : label} ${val}</span><span class="dv">${dv}</span></div>`;
+    };
+    // macro energy split (4/4/9 kcal per gram)
+    const pk = (f.per100.protein || 0) * 4, ck = (f.per100.carbs || 0) * 4, fk = (f.per100.fat || 0) * 9, tk = pk + ck + fk || 1;
+    const pct = x => Math.round(x / tk * 100);
+    const handful = lang === "fr" ? 30 : 28.35;
+    const chips = [f.serving ? `<button type="button" class="chip" data-g="${f.serving.g}">${T().serving} (${esc(f.serving.label)})</button>` : "",
+                   `<button type="button" class="chip" data-g="100">100 g</button>`,
+                   `<button type="button" class="chip" data-g="${handful}">${T().oz}</button>`].join("");
+    const energy = lang === "fr"
+      ? `<span class="l">Énergie</span><span class="v"><small>${n.kcal != null ? num(n.kcal * 4.184) + " kJ" : ""}</small>${n.kcal != null ? num(n.kcal) : "–"}<small style="margin:0 0 0 4px">kcal</small></span>`
+      : `<span class="l">Calories</span><span class="v">${n.kcal != null ? num(n.kcal) : "–"}</span>`;
+    const kcalDv = lang === "fr" && n.kcal != null ? `<div class="nrow"><span></span><span class="dv">${pc(n.kcal / L.dv.kcal * 100)}</span></div>` : "";
+
+    $("detail").innerHTML = `
+      <h2>${L.title}</h2>
+      <p class="fname">${esc(f.name)}${f.brand ? ` <span class="src">· ${esc(f.brand)}</span>` : ""}</p>
+      <div class="amt">
+        <label for="amt">${T().amount}</label><input type="number" id="amt" min="0" step="1" value="${amount}"> g
+        ${chips}
+      </div>
+      <div class="rule-xl"></div>
+      <div class="calrow">${energy}</div>
+      ${kcalDv}
+      <div class="rule-m"></div>
+      <div class="dvhead">${L.dvHead}</div>
+      ${L.rows.map(row).join("")}
+      <div class="rule-xl"></div>
+      ${L.minerals.map(row).join("")}
+      <p class="foot">${L.foot}
+        <br>${T().source}${lang === "fr" ? " :" : ":"} <a href="${esc(f.url)}" target="_blank" rel="noopener">${esc(f.source)}</a></p>
+      <div class="split" aria-label="${T().protein} / ${T().carbs} / ${T().fat}">
+        <span style="width:${pct(pk)}%;background:var(--protein)"></span><span style="width:${pct(ck)}%;background:var(--carbs)"></span><span style="width:${pct(fk)}%;background:var(--fat)"></span>
+      </div>
+      <div class="legend"><span class="p">${T().protein} ${pc(pct(pk))}</span><span class="c">${T().carbs} ${pc(pct(ck))}</span><span class="f">${T().fat} ${pc(pct(fk))}</span><span>${T().pctCal}</span></div>
+      <div class="addrow">
+        <select id="meal" aria-label="Meal">${Object.keys(T().meals).map(m => `<option value="${m}"${m === guessMeal() ? " selected" : ""}>${T().meals[m]}</option>`).join("")}</select>
+        <button type="button" class="btn" id="addBtn">${T().add(num(amount, 1))}</button>
+      </div>`;
+    $("amt").addEventListener("input", e => {
+      const v = parseFloat(e.target.value);
+      if (!isNaN(v) && v >= 0) { amount = v; refreshDetailKeepingFocus(); }
+    });
+    $("detail").querySelectorAll(".chip").forEach(b => b.addEventListener("click", () => { amount = r1(parseFloat(b.dataset.g)); renderDetail(); }));
+    $("addBtn").addEventListener("click", addToLog);
+  }
+  function refreshDetailKeepingFocus() {
+    const pos = $("amt").selectionStart;
+    renderDetail();
+    const again = $("amt"); again.focus(); try { again.setSelectionRange(pos, pos); } catch {}
+  }
+  function guessMeal() {
+    const h = new Date().getHours();
+    return h < 11 ? "breakfast" : h < 15 ? "lunch" : h < 21 ? "dinner" : "snacks";
+  }
+
+  // ---------- day log ----------
+  const dayKey = d => `log:${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  function addToLog() {
+    if (!selected || !(amount > 0)) return;
+    const log = store.get(dayKey(day), []);
+    log.push({ name: selected.name, brand: selected.brand, grams: amount, meal: $("meal").value, per100: selected.per100, t: Date.now() });
+    store.set(dayKey(day), log);
+    renderLog();
+    $("addBtn").textContent = T().added;
+    setTimeout(() => { if ($("addBtn")) $("addBtn").textContent = T().add(num(amount, 1)); }, 1200);
+  }
+  function renderLog() {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const d0 = new Date(day); d0.setHours(0, 0, 0, 0);
+    const diff = Math.round((d0 - today) / 864e5);
+    $("dayLabel").textContent = diff === 0 ? T().today : diff === -1 ? T().yesterday
+      : day.toLocaleDateString(lang === "fr" ? "fr-FR" : "en-US", { weekday: "short", month: "short", day: "numeric" });
+    const log = store.get(dayKey(day), []);
+    const tot = { kcal: 0, protein: 0, carbs: 0, fat: 0 };
+    for (const e of log) { const s = scaled(e.per100, e.grams); for (const k in tot) tot[k] += s[k] || 0; }
+    const tile = (label, v, goal, unit, cls) => {
+      const p = goal ? Math.min(100, v / goal * 100) : 0;
+      return `<div class="tot ${cls}${goal && v > goal ? " over" : ""}"><div class="k">${label}</div>
+        <div class="n">${num(v)}<small> / ${num(goal)}${unit}</small></div><div class="bar"><i style="width:${p}%"></i></div></div>`;
+    };
+    $("totals").innerHTML = tile(T().kcal, tot.kcal, settings.kcal, "", "kc") + tile(T().protein, tot.protein, settings.p, " g", "")
+      + tile(T().carbs, tot.carbs, settings.c, " g", "") + tile(T().fat, tot.fat, settings.f, " g", "");
+    if (!log.length) { $("log").innerHTML = `<p class="hint">${diff === 0 ? T().emptyToday : T().emptyDay}</p>`; return; }
+    const known = Object.keys(T().meals);
+    $("log").innerHTML = known.map(m => {
+      const items = log.map((e, i) => ({ e, i })).filter(x => (known.includes(x.e.meal) ? x.e.meal : "snacks") === m);
+      if (!items.length) return "";
+      const mk = items.reduce((a, x) => a + (x.e.per100.kcal || 0) * x.e.grams / 100, 0);
+      return `<div class="meal"><h4><span>${T().meals[m]}</span><span>${num(mk)} kcal</span></h4>` + items.map(({ e, i }) =>
+        `<div class="entry"><span class="nm" title="${esc(e.name)}">${esc(e.name)} <small>${num(e.grams, 1)} g</small></span>
+          <span class="kc">${num((e.per100.kcal || 0) * e.grams / 100)}</span>
+          <button type="button" data-del="${i}" aria-label="${esc(T().remove(e.name))}">×</button></div>`).join("") + `</div>`;
+    }).join("");
+  }
+  $("log").addEventListener("click", e => {
+    const b = e.target.closest("[data-del]"); if (!b) return;
+    const log = store.get(dayKey(day), []); log.splice(+b.dataset.del, 1); store.set(dayKey(day), log); renderLog();
+  });
+  $("prevDay").addEventListener("click", () => { day.setDate(day.getDate() - 1); renderLog(); });
+  $("nextDay").addEventListener("click", () => { day.setDate(day.getDate() + 1); renderLog(); });
+
+  // ---------- wiring ----------
+  $("results").addEventListener("click", e => { const b = e.target.closest("[data-i]"); if (b) select(results[+b.dataset.i]); });
+  $("searchForm").addEventListener("submit", e => { e.preventDefault(); runSearch($("q").value); });
+  const setSource = s => {
+    source = s; store.set("source", s); renderChrome();
+    if (!$("q").value.trim() || $("q").value.trim() === lastQuery) $("q").value = T().sample[s];
+    runSearch($("q").value);
+  };
+  $("srcUsda").addEventListener("click", () => setSource("usda"));
+  $("srcOff").addEventListener("click", () => setSource("off"));
+  const setLang = l => {
+    lang = l; store.set("lang", l); renderChrome(); renderLog();
+    // Open Food Facts names depend on the language, so refresh those results
+    if (source === "off" && lastQuery) runSearch(lastQuery); else { renderResults(); renderDetail(); }
+  };
+  $("langFr").addEventListener("click", () => setLang("fr"));
+  $("langEn").addEventListener("click", () => setLang("en"));
+
+  const bindSetting = (id, key, isNum) => {
+    $(id).value = settings[key];
+    $(id).addEventListener("change", e => { settings[key] = isNum ? (parseFloat(e.target.value) || 0) : e.target.value; store.set("settings", settings); renderLog(); });
+  };
+  bindSetting("goalKcal", "kcal", true); bindSetting("goalP", "p", true); bindSetting("goalC", "c", true); bindSetting("goalF", "f", true);
+  bindSetting("usdaKey", "usdaKey", false);
+
+  renderChrome();
+  renderLog();
+  // open in a working state with an example search
+  $("q").value = T().sample[source];
+  runSearch($("q").value);
+})();
+</script>
+</body>
+</html>
