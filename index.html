@@ -1,14 +1,24 @@
 <!doctype html>
-<html lang="en">
+<html lang="fr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Forkful</title>
+<meta name="description" content="Valeurs nutritionnelles et journal alimentaire : CIQUAL, USDA et Open Food Facts.">
+<meta name="theme-color" content="#7a2250" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121614" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Forkful">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800;900&family=Source+Sans+3:wght@400;600&display=swap">
 <style>
-/* Layout: two panes — search & results on the left, a printed-style Nutrition Facts label and today's log on the right; stacks on phones. */
+/* Layout: two panes — search & results on the left, a printed-style nutrition label and the day's log on the right; one column on phones. */
 :root {
   --bg: #f6f7f4;
   --surface: #ffffff;
@@ -16,12 +26,13 @@
   --muted: #5f6b64;
   --line: #d9ded8;
   --accent: #7a2250;          /* beet */
+  --on-accent: #ffffff;
   --accent-soft: #f3e6ec;
   --protein: #2f6f9f;
   --carbs: #c8871c;
   --fat: #8a4fb0;
-  --good: #2e7d4f;
   --warn: #b5541c;
+  --scrim: rgba(10, 12, 11, 0.92);
   --font-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
   --font-body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
   color-scheme: light;
@@ -29,52 +40,66 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #121614; --surface: #1b201d; --ink: #e8ece9; --muted: #9aa59f; --line: #2e3531;
-    --accent: #e27bab; --accent-soft: #3a2230;
-    --protein: #6fb0e0; --carbs: #e5b04e; --fat: #c294e0; --good: #6cc592; --warn: #f09a5f;
+    --accent: #e27bab; --on-accent: #1b0d14; --accent-soft: #3a2230;
+    --protein: #6fb0e0; --carbs: #e5b04e; --fat: #c294e0; --warn: #f09a5f;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #121614; --surface: #1b201d; --ink: #e8ece9; --muted: #9aa59f; --line: #2e3531;
-  --accent: #e27bab; --accent-soft: #3a2230;
-  --protein: #6fb0e0; --carbs: #e5b04e; --fat: #c294e0; --good: #6cc592; --warn: #f09a5f;
+  --accent: #e27bab; --on-accent: #1b0d14; --accent-soft: #3a2230;
+  --protein: #6fb0e0; --carbs: #e5b04e; --fat: #c294e0; --warn: #f09a5f;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { margin: 0; }
 body {
   background: var(--bg); color: var(--ink);
   font: 16px/1.45 var(--font-body);
-  padding: 0 16px 48px;
+  padding: env(safe-area-inset-top, 0px) max(16px, env(safe-area-inset-right, 0px)) calc(48px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+  -webkit-tap-highlight-color: transparent;
 }
 .wrap { max-width: 1180px; margin: 0 auto; }
 header.top {
-  display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px 24px;
-  padding-block: 24px 16px; border-bottom: 3px solid var(--ink); margin-bottom: 20px;
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 24px;
+  padding-block: 20px 14px; border-bottom: 3px solid var(--ink); margin-bottom: 18px;
 }
 .brand { font: 900 2rem/1 var(--font-display); letter-spacing: -0.02em; margin: 0; }
 .brand span { color: var(--accent); }
+.toprt { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .tag { color: var(--muted); font-size: 0.95rem; margin: 0; }
+@media (max-width: 560px) { .tag { display: none; } }
 .grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); gap: 28px; align-items: start; }
 @media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } }
 
 /* Search */
-form.search { display: flex; flex-wrap: wrap; gap: 8px; }
+form.search { display: grid; gap: 10px; }
 .seg { display: inline-flex; border: 1.5px solid var(--ink); border-radius: 999px; overflow: hidden; }
 .seg button { border: 0; background: transparent; color: var(--ink); padding: 8px 14px; font: 600 0.9rem var(--font-body); cursor: pointer; }
 .seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
-.searchrow { display: flex; gap: 8px; flex: 1 1 100%; }
+.seg.sm button { padding: 4px 10px; font-size: 0.8rem; }
+.seg.src { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-radius: 10px; }
+.seg.src button { padding: 8px 6px; line-height: 1.15; min-width: 0; overflow-wrap: anywhere; }
+form.search > * { min-width: 0; }
+.seg.src button + button { border-left: 1.5px solid var(--ink); }
+.seg.src small { display: block; font-weight: 400; font-size: 0.75rem; opacity: .8; }
+.searchrow { display: flex; gap: 8px; }
 input[type="search"], input[type="number"], input[type="text"] {
   font: inherit; color: var(--ink); background: var(--surface);
   border: 1.5px solid var(--line); border-radius: 8px; padding: 10px 12px; min-width: 0;
 }
-input:focus-visible, button:focus-visible, select:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+input:focus-visible, button:focus-visible, select:focus-visible, a:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 .searchrow input { flex: 1; }
-.btn { font: 700 0.95rem var(--font-display); border: 0; border-radius: 8px; padding: 10px 16px; cursor: pointer; background: var(--accent); color: #fff; }
+.btn { font: 700 0.95rem var(--font-display); border: 0; border-radius: 8px; padding: 10px 16px; cursor: pointer; background: var(--accent); color: var(--on-accent); }
 .btn.ghost { background: transparent; color: var(--ink); border: 1.5px solid var(--line); }
+.btn.icon { display: inline-grid; place-items: center; padding: 8px 12px; }
+.btn.icon svg { width: 24px; height: 24px; }
+#goBtn svg { display: none; width: 22px; height: 22px; }
+@media (max-width: 480px) { #goBtn { display: inline-grid; place-items: center; padding: 8px 12px; } #goBtn svg { display: block; } #goBtn span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); } }
 .btn:disabled { opacity: .5; cursor: default; }
 .hint { color: var(--muted); font-size: 0.85rem; margin: 8px 0 0; }
-.status { margin: 14px 0 6px; font-size: 0.9rem; color: var(--muted); min-height: 1.3em; }
+.status { margin: 12px 0 6px; font-size: 0.9rem; color: var(--muted); min-height: 1.3em; }
 .status.err { color: var(--warn); }
 
 ul.results { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
@@ -93,15 +118,14 @@ ul.results li button[aria-current="true"] { background: var(--accent-soft); box-
 .kcal { text-align: right; font: 800 1.15rem/1 var(--font-display); font-variant-numeric: tabular-nums; }
 .kcal small { display: block; font: 400 0.72rem var(--font-body); color: var(--muted); margin-top: 3px; }
 
-/* Nutrition Facts label */
-.label {
-  background: var(--surface); border: 2px solid var(--ink); padding: 10px 12px 12px; font-family: var(--font-display);
-  max-width: 100%;
-}
-.label h2 { font: 900 2.1rem/1 var(--font-display); margin: 0; letter-spacing: -0.01em; }
+/* Nutrition label */
+.label { background: var(--surface); border: 2px solid var(--ink); padding: 10px 12px 12px; font-family: var(--font-display); max-width: 100%; scroll-margin-top: 12px; }
+.label h2 { font: 900 2.1rem/1 var(--font-display); margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
 .label .fname { font: 600 0.95rem/1.3 var(--font-body); margin: 4px 0 6px; overflow-wrap: anywhere; }
 .label .src { font: 400 0.78rem var(--font-body); color: var(--muted); }
 .label .src a { color: var(--muted); }
+.backlink { display: none; font: 600 0.85rem var(--font-body); color: var(--accent); background: none; border: 0; padding: 0 0 8px; cursor: pointer; }
+@media (max-width: 860px) { .backlink { display: inline-block; } }
 .amt { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 6px 0; border-top: 1px solid var(--ink); }
 .amt label { font-weight: 800; }
 .amt input { width: 90px; padding: 6px 8px; }
@@ -109,9 +133,10 @@ ul.results li button[aria-current="true"] { background: var(--accent-soft); box-
 .chip:hover { border-color: var(--ink); }
 .rule-xl { border-top: 10px solid var(--ink); }
 .rule-m { border-top: 5px solid var(--ink); }
-.calrow { display: flex; justify-content: space-between; align-items: flex-end; padding: 4px 0 2px; }
+.calrow { display: flex; justify-content: space-between; align-items: flex-end; gap: 8px; padding: 4px 0 2px; }
 .calrow .l { font: 900 1.5rem/1 var(--font-display); }
-.calrow .v { font: 900 2.6rem/1 var(--font-display); font-variant-numeric: tabular-nums; }
+.calrow .v { font: 900 2.6rem/1 var(--font-display); font-variant-numeric: tabular-nums; text-align: right; }
+.calrow .v small { font: 600 0.9rem var(--font-body); color: var(--muted); margin-right: 6px; }
 .dvhead { text-align: right; font: 800 0.8rem var(--font-display); padding: 3px 0; }
 .nrow { display: flex; justify-content: space-between; gap: 8px; border-top: 1px solid var(--ink); padding: 3px 0; font-size: 0.92rem; font-variant-numeric: tabular-nums; }
 .nrow.sub { padding-left: 18px; }
@@ -119,6 +144,7 @@ ul.results li button[aria-current="true"] { background: var(--accent-soft); box-
 .nrow .dv { font-weight: 800; }
 .na { color: var(--muted); font-weight: 400; }
 .foot { font: 400 0.75rem/1.35 var(--font-body); margin: 6px 0 0; border-top: 5px solid var(--ink); padding-top: 5px; }
+.foot a { color: inherit; }
 .split { display: flex; height: 10px; border-radius: 5px; overflow: hidden; margin: 10px 0 4px; background: var(--line); }
 .split span { display: block; height: 100%; }
 .legend { display: flex; gap: 12px; flex-wrap: wrap; font: 400 0.8rem var(--font-body); color: var(--muted); }
@@ -132,7 +158,7 @@ section.day { margin-top: 24px; }
 .dayhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .dayhead h3 { font: 800 1.25rem var(--font-display); margin: 0; }
 .daynav { display: flex; align-items: center; gap: 6px; }
-.daynav button { width: 32px; height: 32px; border-radius: 50%; border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; font-weight: 800; }
+.daynav button { width: 36px; height: 36px; border-radius: 50%; border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; font-weight: 800; }
 .daynav span { font-variant-numeric: tabular-nums; min-width: 8.5em; text-align: center; font-weight: 600; }
 .totals { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 12px 0; }
 @media (max-width: 420px) { .totals { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -149,18 +175,33 @@ section.day { margin-top: 24px; }
 .entry .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .entry .nm small { color: var(--muted); }
 .entry .kc { font-weight: 700; font-variant-numeric: tabular-nums; }
-.entry button { border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 1.1rem; line-height: 1; padding: 4px 6px; border-radius: 4px; }
+.entry button { border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 1.2rem; line-height: 1; padding: 6px 8px; border-radius: 4px; }
 .entry button:hover { color: var(--warn); background: var(--accent-soft); }
 
 details.settings { margin-top: 28px; border-top: 1px solid var(--line); padding-top: 12px; }
 details.settings summary { cursor: pointer; font: 700 0.95rem var(--font-display); }
-.setgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-top: 12px; }
+.setgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-top: 12px; }
 .setgrid label { display: grid; gap: 4px; font-size: 0.85rem; color: var(--muted); }
-.setgrid a { color: var(--accent); }
+.credits { font-size: 0.78rem; color: var(--muted); margin-top: 16px; }
+.credits a { color: inherit; }
+
+/* Barcode scanner */
+.scanner { position: fixed; inset: 0; z-index: 10; background: var(--scrim); color: #fff; display: grid; grid-template-rows: auto 1fr auto;
+  padding: calc(12px + env(safe-area-inset-top, 0px)) 16px calc(16px + env(safe-area-inset-bottom, 0px)); gap: 12px; }
+.scanner header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.scanner h2 { font: 800 1.2rem var(--font-display); margin: 0; }
+.scanner .close { background: rgba(255,255,255,.15); color: #fff; border: 0; border-radius: 999px; padding: 8px 14px; font: 600 0.9rem var(--font-body); cursor: pointer; }
+.viewfinder { position: relative; overflow: hidden; border-radius: 12px; background: #000; min-height: 0; display: grid; place-items: center; }
+.viewfinder video { width: 100%; height: 100%; object-fit: cover; }
+.viewfinder .frame { position: absolute; left: 10%; right: 10%; top: 35%; bottom: 35%; border: 3px solid #fff; border-radius: 10px; box-shadow: 0 0 0 100vmax rgba(0,0,0,.35); }
+.viewfinder .laser { position: absolute; left: 12%; right: 12%; top: 50%; height: 2px; background: #ff4d8d; }
+@media (prefers-reduced-motion: no-preference) { .viewfinder .laser { animation: sweep 1.6s ease-in-out infinite alternate; } }
+@keyframes sweep { from { transform: translateY(-40px); } to { transform: translateY(40px); } }
+.scanner .msg { margin: 0; text-align: center; font-size: 0.95rem; }
+.scanner .row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.scanner .photo { background: #fff; color: #17201b; border-radius: 8px; padding: 10px 16px; font: 700 0.95rem var(--font-display); cursor: pointer; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 @media (prefers-reduced-motion: no-preference) { .bar i, .split span { transition: width .3s ease; } }
-.toprt { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-.seg.sm button { padding: 4px 10px; font-size: 0.8rem; }
-.calrow .v small { font: 600 0.9rem var(--font-body); color: var(--muted); margin-right: 6px; }
 </style>
 </head>
 <body>
@@ -169,7 +210,7 @@ details.settings summary { cursor: pointer; font: 700 0.95rem var(--font-display
     <h1 class="brand">Fork<span>ful</span></h1>
     <div class="toprt">
       <p class="tag" data-t="tagline"></p>
-      <div class="seg sm" role="group" aria-label="Language / Langue">
+      <div class="seg sm" role="group" aria-label="Langue / Language">
         <button type="button" id="langFr" aria-pressed="false" lang="fr">FR</button>
         <button type="button" id="langEn" aria-pressed="false" lang="en">EN</button>
       </div>
@@ -180,13 +221,18 @@ details.settings summary { cursor: pointer; font: 700 0.95rem var(--font-display
     <!-- Left: search -->
     <main>
       <form class="search" id="searchForm">
-        <div class="seg" role="group" id="srcGroup">
-          <button type="button" id="srcUsda" aria-pressed="true" data-t="srcUsda"></button>
-          <button type="button" id="srcOff" aria-pressed="false" data-t="srcOff"></button>
+        <div class="seg src" role="group" id="srcGroup">
+          <button type="button" data-src="ciqual"><span data-t="srcCiqual"></span><small>CIQUAL</small></button>
+          <button type="button" data-src="usda"><span data-t="srcUsda"></span><small>USDA</small></button>
+          <button type="button" data-src="off"><span data-t="srcOff"></span><small>Open Food Facts</small></button>
         </div>
         <div class="searchrow">
-          <input type="search" id="q" autocomplete="off">
-          <button class="btn" id="goBtn" type="submit" data-t="search"></button>
+          <input type="search" id="q" autocomplete="off" enterkeyhint="search">
+          <button class="btn icon" id="scanBtn" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 8v8M10 8v8M13 8v8M16 8v8"/></svg>
+            <span class="sr" data-t="scan"></span>
+          </button>
+          <button class="btn" id="goBtn" type="submit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.5-4.5"/></svg><span data-t="search"></span></button>
         </div>
       </form>
       <p class="hint" id="srcHint"></p>
@@ -214,16 +260,35 @@ details.settings summary { cursor: pointer; font: 700 0.95rem var(--font-display
       <details class="settings">
         <summary data-t="settings"></summary>
         <div class="setgrid">
-          <label><span data-t="goalKcal"></span><input type="number" id="goalKcal" min="0" step="50"></label>
-          <label><span data-t="goalP"></span><input type="number" id="goalP" min="0"></label>
-          <label><span data-t="goalC"></span><input type="number" id="goalC" min="0"></label>
-          <label><span data-t="goalF"></span><input type="number" id="goalF" min="0"></label>
+          <label><span data-t="goalKcal"></span><input type="number" id="goalKcal" min="0" step="50" inputmode="numeric"></label>
+          <label><span data-t="goalP"></span><input type="number" id="goalP" min="0" inputmode="numeric"></label>
+          <label><span data-t="goalC"></span><input type="number" id="goalC" min="0" inputmode="numeric"></label>
+          <label><span data-t="goalF"></span><input type="number" id="goalF" min="0" inputmode="numeric"></label>
           <label style="grid-column: 1 / -1"><span data-t="usdaKey"></span>
             <input type="text" id="usdaKey" placeholder="DEMO_KEY" autocomplete="off" spellcheck="false">
           </label>
         </div>
+        <p class="credits" data-t-html="credits"></p>
       </details>
     </aside>
+  </div>
+</div>
+
+<div class="scanner" id="scanner" hidden role="dialog" aria-modal="true" aria-labelledby="scanTitle">
+  <header>
+    <h2 id="scanTitle" data-t="scanTitle"></h2>
+    <button type="button" class="close" id="scanClose" data-t="close"></button>
+  </header>
+  <div class="viewfinder">
+    <video id="scanVideo" playsinline muted></video>
+    <div class="frame"></div><div class="laser"></div>
+  </div>
+  <div>
+    <p class="msg" id="scanMsg"></p>
+    <div class="row" style="margin-top:10px">
+      <label class="photo" for="scanPhoto" data-t="scanPhoto"></label>
+      <input type="file" id="scanPhoto" accept="image/*" capture="environment" class="sr">
+    </div>
   </div>
 </div>
 
@@ -236,64 +301,87 @@ details.settings summary { cursor: pointer; font: 700 0.95rem var(--font-display
   };
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const fold = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
   // ---------- language ----------
   const I18N = {
     en: {
-      tagline: "Nutrition from USDA FoodData Central and Open Food Facts",
-      srcUsda: "Whole foods · USDA", srcOff: "Packaged · Open Food Facts", srcGroup: "Data source",
-      search: "Search", placeholder: "Search a food, or type a barcode",
-      hintUsda: "Lab-measured values for generic foods: produce, meat, dairy, grains. Food names are in English.",
-      hintOff: "Crowd-sourced label data for millions of branded products. Type a barcode number to look one up directly.",
+      tagline: "Nutrition from CIQUAL, USDA and Open Food Facts",
+      srcCiqual: "Foods", srcUsda: "Foods (US)", srcOff: "Products", srcGroup: "Data source",
+      search: "Search", placeholder: "Search a food or type a barcode", scan: "Scan a barcode",
+      hintCiqual: "French national food table (ANSES), about 3,100 foods. Works offline.",
+      hintUsda: "US lab-measured values for generic foods. Food names are in English.",
+      hintOff: "Crowd-sourced label data for millions of branded products. Scan or type a barcode to look one up.",
       searching: (s, q) => `Searching ${s} for “${q}”…`,
-      found: (n, q) => `${n} results for “${q}”. Values per 100 g.`,
-      none: q => `No matches for “${q}”. Try a simpler word or the other source.`,
+      found: (n, q) => `${n} result${n > 1 ? "s" : ""} for “${q}”. Values per 100 g.`,
+      none: q => `No matches for “${q}”. Try a simpler word or another source.`,
+      noBarcode: c => `Barcode ${c} is not in Open Food Facts yet.`,
       errUsdaLimit: "The shared USDA demo key has hit its hourly limit. Add your own free key under Goals & settings.",
       errUsdaKey: "USDA rejected the API key. Check it under Goals & settings.",
       errHttp: (s, c) => `${s} search failed (HTTP ${c}).`,
       errNet: "Network error. Check your connection and try again.",
-      errServer: "Open Food Facts needs the local server. Start it with: python server.py",
-      pick: "Pick a food to see its Nutrition Facts.",
+      errOffText: "Searching products by name needs the local server (python server.py). In this version, scan or type the barcode instead.",
+      errCiqual: "The CIQUAL table could not be loaded.",
+      pick: "Pick a food to see its nutrition facts.",
+      back: "↑ Back to results",
       amount: "Amount", serving: "1 serving", oz: "1 oz (28 g)",
       add: g => `Add ${g} g to log`, added: "Added ✓",
       log: "Food log", today: "Today", yesterday: "Yesterday", prev: "Previous day", next: "Next day",
       emptyToday: "Nothing logged yet today. Pick a food, set the amount, then press Add.",
       emptyDay: "Nothing logged on this day.", remove: n => `Remove ${n}`,
       kcal: "Calories", protein: "Protein", carbs: "Carbs", fat: "Fat",
-      pctCal: "of calories", source: "Source",
+      pctCal: "of calories", source: "Source", estimated: "Energy estimated from protein, carbs and fat.",
       settings: "Goals & settings", goalKcal: "Calories (kcal)", goalP: "Protein (g)", goalC: "Carbs (g)", goalF: "Fat (g)",
       usdaKey: "USDA API key (free at fdc.nal.usda.gov/api-key-signup; blank uses the shared demo key)",
+      credits: 'Data: <a href="https://ciqual.anses.fr" target="_blank" rel="noopener">ANSES-CIQUAL 2020</a> (Etalab Open Licence), <a href="https://fdc.nal.usda.gov" target="_blank" rel="noopener">USDA FoodData Central</a>, <a href="https://world.openfoodfacts.org" target="_blank" rel="noopener">Open Food Facts</a> (ODbL).',
       meals: { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner", snacks: "Snacks" },
       nutriscore: "Nutri-Score", unnamed: "Unnamed product", na: "n/a",
-      sample: { usda: "banana", off: "greek yogurt" }
+      scanTitle: "Scan a barcode", close: "Close", scanPhoto: "Take a photo instead",
+      scanAim: "Point the camera at the barcode.", scanStarting: "Starting the camera…",
+      scanNoCam: "The camera is not available here. Take a photo of the barcode instead.",
+      scanDenied: "Camera access was refused. Allow it in the browser settings, or take a photo of the barcode.",
+      scanNothing: "No barcode found in that photo. Try again closer, with the barcode flat and well lit.",
+      scanLoading: "Loading the barcode reader…",
+      sample: { ciqual: "banana", usda: "banana", off: "3017624010701" }
     },
     fr: {
-      tagline: "Valeurs nutritionnelles issues de l’USDA et d’Open Food Facts",
-      srcUsda: "Aliments bruts · USDA", srcOff: "Produits emballés · Open Food Facts", srcGroup: "Source des données",
-      search: "Rechercher", placeholder: "Chercher un aliment ou saisir un code-barres",
-      hintUsda: "Valeurs mesurées en laboratoire pour les aliments génériques. Base américaine : cherchez en anglais (ex. « apple », « chicken breast »).",
-      hintOff: "Données d’étiquettes collaboratives pour des millions de produits de marque. Saisissez un code-barres pour trouver un produit directement.",
+      tagline: "Valeurs nutritionnelles CIQUAL, USDA et Open Food Facts",
+      srcCiqual: "Aliments", srcUsda: "Aliments (US)", srcOff: "Produits", srcGroup: "Source des données",
+      search: "Rechercher", placeholder: "Chercher un aliment ou saisir un code-barres", scan: "Scanner un code-barres",
+      hintCiqual: "Table nationale française (ANSES), environ 3 100 aliments. Fonctionne hors connexion.",
+      hintUsda: "Valeurs mesurées aux États-Unis pour les aliments génériques. Cherchez en anglais (ex. « apple »).",
+      hintOff: "Données d’étiquettes collaboratives pour des millions de produits de marque. Scannez ou saisissez un code-barres.",
       searching: (s, q) => `Recherche de « ${q} » dans ${s}…`,
-      found: (n, q) => `${n} résultats pour « ${q} ». Valeurs pour 100 g.`,
-      none: q => `Aucun résultat pour « ${q} ». Essayez un mot plus simple ou l’autre source.`,
+      found: (n, q) => `${n} résultat${n > 1 ? "s" : ""} pour « ${q} ». Valeurs pour 100 g.`,
+      none: q => `Aucun résultat pour « ${q} ». Essayez un mot plus simple ou une autre source.`,
+      noBarcode: c => `Le code-barres ${c} n’est pas encore dans Open Food Facts.`,
       errUsdaLimit: "La clé de démonstration USDA a atteint sa limite horaire. Ajoutez votre clé gratuite dans Objectifs et réglages.",
       errUsdaKey: "L’USDA a refusé la clé API. Vérifiez-la dans Objectifs et réglages.",
       errHttp: (s, c) => `La recherche ${s} a échoué (HTTP ${c}).`,
       errNet: "Erreur réseau. Vérifiez votre connexion et réessayez.",
-      errServer: "Open Food Facts nécessite le serveur local. Lancez-le avec : python server.py",
+      errOffText: "La recherche de produits par nom nécessite le serveur local (python server.py). Ici, scannez ou saisissez le code-barres.",
+      errCiqual: "Impossible de charger la table CIQUAL.",
       pick: "Choisissez un aliment pour voir ses valeurs nutritionnelles.",
+      back: "↑ Retour aux résultats",
       amount: "Quantité", serving: "1 portion", oz: "1 poignée (30 g)",
       add: g => `Ajouter ${g} g au journal`, added: "Ajouté ✓",
       log: "Journal alimentaire", today: "Aujourd’hui", yesterday: "Hier", prev: "Jour précédent", next: "Jour suivant",
       emptyToday: "Rien de noté aujourd’hui. Choisissez un aliment, réglez la quantité, puis appuyez sur Ajouter.",
       emptyDay: "Rien de noté ce jour-là.", remove: n => `Retirer ${n}`,
       kcal: "Calories", protein: "Protéines", carbs: "Glucides", fat: "Lipides",
-      pctCal: "des calories", source: "Source",
+      pctCal: "des calories", source: "Source", estimated: "Énergie estimée à partir des protéines, glucides et lipides.",
       settings: "Objectifs et réglages", goalKcal: "Calories (kcal)", goalP: "Protéines (g)", goalC: "Glucides (g)", goalF: "Lipides (g)",
       usdaKey: "Clé API USDA (gratuite sur fdc.nal.usda.gov/api-key-signup ; vide = clé de démonstration partagée)",
+      credits: 'Données : <a href="https://ciqual.anses.fr" target="_blank" rel="noopener">ANSES-CIQUAL 2020</a> (Licence Ouverte Etalab), <a href="https://fdc.nal.usda.gov" target="_blank" rel="noopener">USDA FoodData Central</a>, <a href="https://fr.openfoodfacts.org" target="_blank" rel="noopener">Open Food Facts</a> (ODbL).',
       meals: { breakfast: "Petit-déjeuner", lunch: "Déjeuner", dinner: "Dîner", snacks: "Collations" },
       nutriscore: "Nutri-Score", unnamed: "Produit sans nom", na: "n.d.",
-      sample: { usda: "banana", off: "yaourt grec" }
+      scanTitle: "Scanner un code-barres", close: "Fermer", scanPhoto: "Prendre une photo à la place",
+      scanAim: "Visez le code-barres avec l’appareil photo.", scanStarting: "Démarrage de la caméra…",
+      scanNoCam: "La caméra n’est pas disponible ici. Prenez plutôt une photo du code-barres.",
+      scanDenied: "L’accès à la caméra a été refusé. Autorisez-le dans les réglages du navigateur, ou prenez une photo du code-barres.",
+      scanNothing: "Aucun code-barres trouvé sur cette photo. Réessayez plus près, code bien à plat et éclairé.",
+      scanLoading: "Chargement du lecteur de codes-barres…",
+      sample: { ciqual: "banane", usda: "banana", off: "3017624010701" }
     }
   };
 
@@ -310,7 +398,7 @@ details.settings summary { cursor: pointer; font: 700 0.95rem var(--font-display
     },
     fr: {
       title: "Valeurs nutritionnelles", dvHead: "% AR*",
-      dv: { kcal: 2000, fat: 70, satfat: 20, carbs: 260, sugar: 90, protein: 50, salt: 6, fiber: null, calcium: 800, iron: 14, potassium: 2000 },
+      dv: { kcal: 2000, fat: 70, satfat: 20, carbs: 260, sugar: 90, protein: 50, salt: 6, calcium: 800, iron: 14, potassium: 2000 },
       rows: [["Matières grasses", "fat", "g", "b"], ["dont acides gras saturés", "satfat", "g", "s"], ["Glucides", "carbs", "g", "b"],
              ["dont sucres", "sugar", "g", "s"], ["Fibres alimentaires", "fiber", "g", "b"], ["Protéines", "protein", "g", "b"], ["Sel", "salt", "g", "b"]],
       minerals: [["Calcium", "calcium", "mg"], ["Fer", "iron", "mg"], ["Potassium", "potassium", "mg"]],
@@ -318,19 +406,68 @@ details.settings summary { cursor: pointer; font: 700 0.95rem var(--font-display
     }
   };
 
-  let lang = store.get("lang", (navigator.language || "en").toLowerCase().startsWith("fr") ? "fr" : "en");
+  let lang = store.get("lang", (navigator.language || "fr").toLowerCase().startsWith("en") ? "en" : "fr");
   const T = () => I18N[lang];
   const num = (v, d = 0) => v == null || isNaN(v) ? null : new Intl.NumberFormat(lang === "fr" ? "fr-FR" : "en-US", { maximumFractionDigits: d }).format(v);
   const pc = v => num(v) + (lang === "fr" ? " %" : "%");
   const r1 = n => n == null || isNaN(n) ? null : Math.round(n * 10) / 10;
+  const isBarcode = q => /^\d{8,14}$/.test(q);
 
   const settings = Object.assign({ kcal: 2000, p: 120, c: 225, f: 70, usdaKey: "" }, store.get("settings", {}));
-  let source = store.get("source", "usda");
+  let source = store.get("source", "ciqual");
   let results = [];
   let selected = null;
   let amount = 100;
   let lastQuery = "";
   let day = new Date();
+
+  // ---------- CIQUAL (bundled, searched locally) ----------
+  let ciqualPromise = null;
+  function loadCiqual() {
+    ciqualPromise = ciqualPromise || fetch("data/ciqual.json").then(r => {
+      if (!r.ok) throw new Error(T().errCiqual);
+      return r.json();
+    }).then(d => {
+      const idx = Object.fromEntries(d.columns.map((c, i) => [c, i]));
+      const nutrients = d.columns.slice(idx.kcal);
+      return {
+        groups: d.groups,
+        foods: d.foods.map(row => ({
+          code: row[idx.code], fr: row[idx.name_fr], en: row[idx.name_en], group: row[idx.group], est: !!row[idx.kcal_estimated],
+          per100: Object.fromEntries(nutrients.map(k => [k, row[idx[k]]])),
+          keyFr: fold(row[idx.name_fr]), keyEn: fold(row[idx.name_en])
+        }))
+      };
+    });
+    ciqualPromise.catch(() => { ciqualPromise = null; });
+    return ciqualPromise;
+  }
+  function fromCiqual(f, groups) {
+    const g = groups[f.group] || [];
+    return {
+      id: "ciqual:" + f.code, source: "ANSES-CIQUAL 2020", name: lang === "fr" ? f.fr : f.en,
+      brand: (lang === "fr" ? g[0] : g[1]) || "", img: null, estimated: f.est,
+      url: `https://ciqual.anses.fr/#/aliments/${f.code}`, per100: f.per100, serving: null
+    };
+  }
+  async function searchCiqual(q) {
+    const { foods, groups } = await loadCiqual();
+    const words = fold(q).split(/[\s,]+/).filter(Boolean);
+    if (!words.length) return [];
+    const mine = lang === "fr" ? "keyFr" : "keyEn", other = lang === "fr" ? "keyEn" : "keyFr";
+    const hits = [];
+    for (const f of foods) {
+      let key = null;
+      if (words.every(w => f[mine].includes(w))) key = f[mine];
+      else if (words.every(w => f[other].includes(w))) key = f[other];
+      if (key == null) continue;
+      // rank: name starts with the query, then a word starts with it, then anywhere; shorter names first
+      const score = key.startsWith(words[0]) ? 0 : new RegExp("\\b" + words[0].replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).test(key) ? 1 : 2;
+      hits.push({ f, score: score * 1000 + key.length });
+    }
+    hits.sort((a, b) => a.score - b.score);
+    return hits.slice(0, 40).map(h => fromCiqual(h.f, groups));
+  }
 
   // ---------- normalisers: every food becomes { id, source, name, brand, img, url, per100:{...}, serving:{g,label} } ----------
   const USDA_MAP = { "208": "kcal", "203": "protein", "204": "fat", "205": "carbs", "291": "fiber", "269": "sugar",
@@ -379,7 +516,8 @@ details.settings summary { cursor: pointer; font: 700 0.95rem var(--font-display
     };
   }
 
-  // ---------- API calls ----------
+  // ---------- remote APIs ----------
+  const OFF_FIELDS = "code,product_name,product_name_fr,product_name_en,generic_name,brands,nutriments,serving_size,serving_quantity,image_small_url,nutriscore_grade";
   async function searchUsda(q) {
     const key = settings.usdaKey.trim() || "DEMO_KEY";
     const u = `https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${encodeURIComponent(key)}&query=${encodeURIComponent(q)}&pageSize=25&dataType=Foundation,SR%20Legacy`;
@@ -391,36 +529,55 @@ details.settings summary { cursor: pointer; font: 700 0.95rem var(--font-display
     return (j.foods || []).map(fromUsda);
   }
   async function searchOff(q) {
-    // Open Food Facts is reached through server.py (see the note at the top of that file)
-    const path = /^\d{8,14}$/.test(q) ? `/off/product/${q}` : `/off/search?q=${encodeURIComponent(q)}`;
+    if (isBarcode(q)) {
+      // Product lookups by barcode are allowed straight from the browser
+      const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${q}.json?fields=${OFF_FIELDS}&lc=${lang}`);
+      if (res.status === 404) return [];
+      if (!res.ok) throw new Error(T().errHttp("Open Food Facts", res.status));
+      const j = await res.json();
+      return j.status === 1 ? [fromOff(j.product)] : [];
+    }
+    // Text search is blocked for browsers, so it goes through server.py when that is running
     let res;
-    try { res = await fetch(`${path}${path.includes("?") ? "&" : "?"}lang=${lang}`); }
-    catch { throw new Error(location.protocol === "file:" ? T().errServer : T().errNet); }
-    if (res.status === 404 || res.status === 501) throw new Error(T().errServer);
-    if (!res.ok) throw new Error(T().errHttp("Open Food Facts", res.status));
+    try { res = await fetch(`off/search?q=${encodeURIComponent(q)}&lang=${lang}`); }
+    catch { throw new Error(T().errNet); }
+    if (!res.ok || !(res.headers.get("content-type") || "").includes("json")) {
+      if (res.status >= 500) throw new Error(T().errHttp("Open Food Facts", res.status));
+      throw new Error(T().errOffText);
+    }
     const j = await res.json();
     return (j.products || []).map(fromOff).filter(f => f.per100.kcal != null);
   }
+  const SEARCH = { ciqual: searchCiqual, usda: searchUsda, off: searchOff };
+  const SOURCE_NAME = { ciqual: "CIQUAL", usda: "USDA", off: "Open Food Facts" };
 
-  async function runSearch(q) {
+  let searchSeq = 0;
+  async function runSearch(q, { keepSelection = false } = {}) {
     q = q.trim();
     if (!q) return;
+    if (isBarcode(q) && source !== "off") { source = "off"; store.set("source", source); renderChrome(); }
     lastQuery = q;
+    const seq = ++searchSeq;
     $("status").className = "status";
-    $("status").textContent = T().searching(source === "usda" ? "USDA" : "Open Food Facts", q);
+    $("status").textContent = T().searching(SOURCE_NAME[source], q);
     $("goBtn").disabled = true;
     try {
-      results = source === "usda" ? await searchUsda(q) : await searchOff(q);
-      $("status").textContent = results.length ? T().found(results.length, q) : T().none(q);
+      const found = await SEARCH[source](q);
+      if (seq !== searchSeq) return;
+      results = found;
+      $("status").textContent = results.length ? T().found(results.length, q) : (isBarcode(q) ? T().noBarcode(q) : T().none(q));
+      const keep = keepSelection && selected && results.find(f => f.id === selected.id);
+      if (keep) { const a = amount; select(keep, { scroll: false }); amount = a; renderDetail(); }
+      else if (results.length) select(results[0], { scroll: isBarcode(q) });
       renderResults();
-      if (results.length) select(results[0]);
     } catch (e) {
+      if (seq !== searchSeq) return;
       results = [];
       renderResults();
       $("status").className = "status err";
       $("status").textContent = (e instanceof TypeError ? T().errNet : e.message) || T().errNet;
     } finally {
-      $("goBtn").disabled = false;
+      if (seq === searchSeq) $("goBtn").disabled = false;
     }
   }
 
@@ -428,16 +585,17 @@ details.settings summary { cursor: pointer; font: 700 0.95rem var(--font-display
   function renderChrome() {
     document.documentElement.lang = lang;
     document.querySelectorAll("[data-t]").forEach(el => { el.textContent = T()[el.dataset.t]; });
+    document.querySelectorAll("[data-t-html]").forEach(el => { el.innerHTML = T()[el.dataset.tHtml]; });
     $("langFr").setAttribute("aria-pressed", lang === "fr");
     $("langEn").setAttribute("aria-pressed", lang === "en");
     $("srcGroup").setAttribute("aria-label", T().srcGroup);
+    $("srcGroup").querySelectorAll("[data-src]").forEach(b => b.setAttribute("aria-pressed", b.dataset.src === source));
     $("q").placeholder = T().placeholder;
     $("q").setAttribute("aria-label", T().placeholder);
+    $("scanBtn").title = T().scan;
     $("prevDay").setAttribute("aria-label", T().prev);
     $("nextDay").setAttribute("aria-label", T().next);
-    $("srcUsda").setAttribute("aria-pressed", source === "usda");
-    $("srcOff").setAttribute("aria-pressed", source === "off");
-    $("srcHint").textContent = source === "usda" ? T().hintUsda : T().hintOff;
+    $("srcHint").textContent = { ciqual: T().hintCiqual, usda: T().hintUsda, off: T().hintOff }[source];
   }
 
   const fmtG = v => v == null ? "–" : num(v, 1) + " g";
@@ -457,11 +615,13 @@ details.settings summary { cursor: pointer; font: 700 0.95rem var(--font-display
     }).join("");
   }
 
-  function select(f) {
+  const oneColumn = () => matchMedia("(max-width: 860px)").matches;
+  function select(f, { scroll = true } = {}) {
     selected = f;
     amount = f.serving ? r1(f.serving.g) : 100;
     renderResults();
     renderDetail();
+    if (scroll && oneColumn()) $("detail").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
   }
 
   function scaled(per100, g) {
@@ -495,10 +655,11 @@ details.settings summary { cursor: pointer; font: 700 0.95rem var(--font-display
     const kcalDv = lang === "fr" && n.kcal != null ? `<div class="nrow"><span></span><span class="dv">${pc(n.kcal / L.dv.kcal * 100)}</span></div>` : "";
 
     $("detail").innerHTML = `
+      <button type="button" class="backlink" id="backBtn">${T().back}</button>
       <h2>${L.title}</h2>
       <p class="fname">${esc(f.name)}${f.brand ? ` <span class="src">· ${esc(f.brand)}</span>` : ""}</p>
       <div class="amt">
-        <label for="amt">${T().amount}</label><input type="number" id="amt" min="0" step="1" value="${amount}"> g
+        <label for="amt">${T().amount}</label><input type="number" id="amt" min="0" step="1" inputmode="decimal" value="${amount}"> g
         ${chips}
       </div>
       <div class="rule-xl"></div>
@@ -509,7 +670,7 @@ details.settings summary { cursor: pointer; font: 700 0.95rem var(--font-display
       ${L.rows.map(row).join("")}
       <div class="rule-xl"></div>
       ${L.minerals.map(row).join("")}
-      <p class="foot">${L.foot}
+      <p class="foot">${L.foot}${f.estimated ? `<br>${T().estimated}` : ""}
         <br>${T().source}${lang === "fr" ? " :" : ":"} <a href="${esc(f.url)}" target="_blank" rel="noopener">${esc(f.source)}</a></p>
       <div class="split" aria-label="${T().protein} / ${T().carbs} / ${T().fat}">
         <span style="width:${pct(pk)}%;background:var(--protein)"></span><span style="width:${pct(ck)}%;background:var(--carbs)"></span><span style="width:${pct(fk)}%;background:var(--fat)"></span>
@@ -525,6 +686,7 @@ details.settings summary { cursor: pointer; font: 700 0.95rem var(--font-display
     });
     $("detail").querySelectorAll(".chip").forEach(b => b.addEventListener("click", () => { amount = r1(parseFloat(b.dataset.g)); renderDetail(); }));
     $("addBtn").addEventListener("click", addToLog);
+    $("backBtn").addEventListener("click", () => $("results").querySelector('[aria-current="true"]')?.scrollIntoView({ block: "center" }));
   }
   function refreshDetailKeepingFocus() {
     const pos = $("amt").selectionStart;
@@ -582,20 +744,133 @@ details.settings summary { cursor: pointer; font: 700 0.95rem var(--font-display
   $("prevDay").addEventListener("click", () => { day.setDate(day.getDate() - 1); renderLog(); });
   $("nextDay").addEventListener("click", () => { day.setDate(day.getDate() + 1); renderLog(); });
 
+  // ---------- barcode scanner ----------
+  // Uses the browser's own BarcodeDetector where it exists (Chrome on Android), otherwise the ZXing library.
+  const FORMATS = ["ean_13", "ean_8", "upc_a", "upc_e"];
+  const ZXING_URL = "https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js";
+  let scanStream = null, scanTimer = null, decoderPromise = null;
+
+  function loadScript(src) {
+    return new Promise((ok, fail) => {
+      const s = document.createElement("script");
+      s.src = src; s.onload = ok; s.onerror = () => fail(new Error("load " + src));
+      document.head.appendChild(s);
+    });
+  }
+  function getDecoder() {
+    decoderPromise = decoderPromise || (async () => {
+      if ("BarcodeDetector" in window) {
+        try {
+          const supported = await BarcodeDetector.getSupportedFormats();
+          const formats = FORMATS.filter(f => supported.includes(f));
+          if (formats.length) {
+            const det = new BarcodeDetector({ formats });
+            return async source => (await det.detect(source))[0]?.rawValue || null;
+          }
+        } catch {}
+      }
+      $("scanMsg").textContent = T().scanLoading;
+      if (!window.ZXing) await loadScript(ZXING_URL);
+      const Z = window.ZXing;
+      const hints = new Map([[Z.DecodeHintType.POSSIBLE_FORMATS, [Z.BarcodeFormat.EAN_13, Z.BarcodeFormat.EAN_8, Z.BarcodeFormat.UPC_A, Z.BarcodeFormat.UPC_E]],
+                             [Z.DecodeHintType.TRY_HARDER, true]]);
+      const reader = new Z.MultiFormatReader();
+      reader.setHints(hints);
+      const canvas = document.createElement("canvas");
+      return async source => {
+        const w = source.videoWidth || source.naturalWidth || source.width, h = source.videoHeight || source.naturalHeight || source.height;
+        if (!w || !h) return null;
+        const scale = Math.min(1, 1280 / Math.max(w, h));
+        canvas.width = Math.round(w * scale); canvas.height = Math.round(h * scale);
+        canvas.getContext("2d", { willReadFrequently: true }).drawImage(source, 0, 0, canvas.width, canvas.height);
+        try {
+          const bitmap = new Z.BinaryBitmap(new Z.HybridBinarizer(new Z.HTMLCanvasElementLuminanceSource(canvas)));
+          return reader.decode(bitmap).getText();
+        } catch { return null; } finally { reader.reset(); }
+      };
+    })();
+    decoderPromise.catch(() => { decoderPromise = null; });
+    return decoderPromise;
+  }
+
+  async function openScanner() {
+    $("scanner").hidden = false;
+    document.body.style.overflow = "hidden";
+    $("scanClose").focus();
+    $("scanMsg").textContent = T().scanStarting;
+    if (!navigator.mediaDevices?.getUserMedia) { $("scanMsg").textContent = T().scanNoCam; return; }
+    try {
+      scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+    } catch (e) {
+      $("scanMsg").textContent = e && e.name === "NotAllowedError" ? T().scanDenied : T().scanNoCam;
+      return;
+    }
+    if ($("scanner").hidden) { stopCamera(); return; }
+    const video = $("scanVideo");
+    video.srcObject = scanStream;
+    await video.play().catch(() => {});
+    let decode;
+    try { decode = await getDecoder(); } catch { $("scanMsg").textContent = T().errNet; return; }
+    $("scanMsg").textContent = T().scanAim;
+    let busy = false;
+    scanTimer = setInterval(async () => {
+      if (busy || !scanStream || video.readyState < 2) return;
+      busy = true;
+      try { const code = await decode(video); if (code) found(code); } finally { busy = false; }
+    }, 250);
+  }
+  function stopCamera() {
+    clearInterval(scanTimer); scanTimer = null;
+    if (scanStream) scanStream.getTracks().forEach(t => t.stop());
+    scanStream = null;
+    $("scanVideo").srcObject = null;
+  }
+  function closeScanner() {
+    stopCamera();
+    $("scanner").hidden = true;
+    document.body.style.overflow = "";
+    $("scanBtn").focus();
+  }
+  function found(code) {
+    code = String(code).trim();
+    if (!/^\d{8,14}$/.test(code)) return;
+    if (navigator.vibrate) navigator.vibrate(60);
+    closeScanner();
+    $("q").value = code;
+    runSearch(code);
+  }
+  $("scanPhoto").addEventListener("change", async e => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      const decode = await getDecoder();
+      const img = new Image();
+      img.src = URL.createObjectURL(file);
+      await img.decode();
+      const code = await decode(img);
+      URL.revokeObjectURL(img.src);
+      if (code) found(code); else $("scanMsg").textContent = T().scanNothing;
+    } catch { $("scanMsg").textContent = T().scanNothing; }
+  });
+  $("scanBtn").addEventListener("click", openScanner);
+  $("scanClose").addEventListener("click", closeScanner);
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("scanner").hidden) closeScanner(); });
+
   // ---------- wiring ----------
   $("results").addEventListener("click", e => { const b = e.target.closest("[data-i]"); if (b) select(results[+b.dataset.i]); });
-  $("searchForm").addEventListener("submit", e => { e.preventDefault(); runSearch($("q").value); });
-  const setSource = s => {
-    source = s; store.set("source", s); renderChrome();
-    if (!$("q").value.trim() || $("q").value.trim() === lastQuery) $("q").value = T().sample[s];
+  $("searchForm").addEventListener("submit", e => { e.preventDefault(); $("q").blur(); runSearch($("q").value); });
+  $("srcGroup").addEventListener("click", e => {
+    const b = e.target.closest("[data-src]"); if (!b || b.dataset.src === source) return;
+    source = b.dataset.src; store.set("source", source); renderChrome();
+    const q = $("q").value.trim();
+    if (!q || q === lastQuery && (isBarcode(q) || source === "off")) $("q").value = T().sample[source];
     runSearch($("q").value);
-  };
-  $("srcUsda").addEventListener("click", () => setSource("usda"));
-  $("srcOff").addEventListener("click", () => setSource("off"));
+  });
   const setLang = l => {
     lang = l; store.set("lang", l); renderChrome(); renderLog();
-    // Open Food Facts names depend on the language, so refresh those results
-    if (source === "off" && lastQuery) runSearch(lastQuery); else { renderResults(); renderDetail(); }
+    // CIQUAL and Open Food Facts names depend on the language, so refresh those results
+    if (source !== "usda" && lastQuery) runSearch(lastQuery, { keepSelection: true }); else { renderResults(); renderDetail(); }
   };
   $("langFr").addEventListener("click", () => setLang("fr"));
   $("langEn").addEventListener("click", () => setLang("en"));
@@ -612,6 +887,9 @@ details.settings summary { cursor: pointer; font: 700 0.95rem var(--font-display
   // open in a working state with an example search
   $("q").value = T().sample[source];
   runSearch($("q").value);
+
+  // installable + offline
+  if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("sw.js").catch(() => {});
 })();
 </script>
 </body>

@@ -1,6 +1,6 @@
 """Forkful local server.
 
-Serves index.html and relays Open Food Facts requests. Open Food Facts blocks
+Serves the app and relays Open Food Facts text searches. Open Food Facts blocks
 search calls made straight from a browser, and asks apps to send an identifying
 User-Agent, so the page calls /off/... here and this server forwards them.
 USDA FoodData Central allows browser calls, so the page talks to it directly.
@@ -19,7 +19,7 @@ from pathlib import Path
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8765
 ROOT = Path(__file__).resolve().parent
-USER_AGENT = "Forkful/0.2 (personal nutrition app)"
+USER_AGENT = "Forkful/0.3 (personal nutrition app; https://github.com/PythDom/food)"
 FIELDS = ("code,product_name,product_name_fr,product_name_en,generic_name,brands,nutriments,"
           "serving_size,serving_quantity,image_small_url,nutriscore_grade")
 
@@ -31,6 +31,9 @@ def fetch_json(url):
 
 
 class Handler(SimpleHTTPRequestHandler):
+    extensions_map = {**SimpleHTTPRequestHandler.extensions_map,
+                      ".webmanifest": "application/manifest+json", ".js": "text/javascript", ".json": "application/json"}
+
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
         if parsed.path.startswith("/off/"):
